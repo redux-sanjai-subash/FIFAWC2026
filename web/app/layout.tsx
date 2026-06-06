@@ -6,8 +6,8 @@ import { ToastProvider } from "@/components/ToastProvider";
 import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
-  title: "Redux · Prediction Club",
-  description: "A premium prediction club by Redux.",
+  title: "Prediction Club",
+  description: "A premium prediction club.",
 };
 
 export const viewport: Viewport = {
@@ -27,7 +27,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Navbar />
               <main className="container-lux py-10 sm:py-16">{children}</main>
               <footer className="container-lux flex flex-col items-center gap-2 border-t border-fg/10 py-10 text-center">
-                <span className="text-[0.62rem] uppercase tracking-luxe text-muted">Redux FC</span>
               </footer>
             </AuthProvider>
           </ToastProvider>

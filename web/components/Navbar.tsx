@@ -27,9 +27,7 @@ export default function Navbar() {
   return (
     <header className="bg-transparent">
       <div className="container-lux flex h-16 items-center justify-between">
-        <Link href={user ? "/dashboard" : "/"} className="flex items-center gap-3">
-          <span className="text-lg font-semibold tracking-tight">Redux FC</span>
-        </Link>
+        <Link href={user ? "/dashboard" : "/"} className="flex items-center gap-3" aria-label="Home" />
 
         {user ? (
           <>

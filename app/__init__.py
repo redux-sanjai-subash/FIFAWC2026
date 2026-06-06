@@ -3,8 +3,12 @@ from pathlib import Path
 from flask import Flask, jsonify
 
 from .db import db
+from flask_migrate import Migrate
 from .schema import ensure_schema
 from .utils.world_cup_data import seed_matches_if_empty
+
+# Flask-Migrate (Alembic) support
+migrate = Migrate()
 
 
 def create_app():
@@ -15,6 +19,8 @@ def create_app():
     instance_path.mkdir(exist_ok=True)
 
     db.init_app(app)
+    # initialize Flask-Migrate so `flask db` CLI commands are available
+    migrate.init_app(app, db)
 
     from .api import api_bp
 
