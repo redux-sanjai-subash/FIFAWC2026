@@ -1,0 +1,29 @@
+[Unit]
+Description=FIFAWC2026 Gunicorn service
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/FIFAWC2026
+Environment="SECRET_KEY=replace-me"
+ExecStart=/var/www/FIFAWC2026/.venv/bin/gunicorn -c /var/www/FIFAWC2026/gunicorn.conf.py run:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+[Unit]
+Description=FIFAWC2026 Gunicorn service
+After=network.target
+
+[Service]
+User=ec2-user
+Group=apache
+WorkingDirectory=/var/www/FIFAWC2026
+Environment="SECRET_KEY=change-this"
+ExecStart=/var/www/FIFAWC2026/.venv/bin/gunicorn -c /var/www/FIFAWC2026/gunicorn.conf.py run:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+

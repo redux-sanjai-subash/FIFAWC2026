@@ -1,0 +1,14 @@
+[Unit]
+Description=FIFAWC2026 Frontend (Next.js)
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/FIFAWC2026/web
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npm run start --prefix /var/www/FIFAWC2026/web
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

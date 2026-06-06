@@ -1,0 +1,152 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,500;1,600&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-serif: "Playfair Display", Georgia, serif;
+}
+
+/* ---- Theme tokens (space-separated RGB channels for /alpha support) ---- */
+[data-theme="dark"] {
+  --bg: 9 9 12;
+  --surface: 17 17 24;
+  --surface-2: 24 24 34;
+  --fg: 244 240 231;
+  --muted: 190 185 175;
+  --gold: 201 162 75;
+  --gold-soft: 230 200 119;
+  --glow: 0.10;
+}
+
+[data-theme="light"] {
+  --bg: 247 244 237;
+  --surface: 255 254 250;
+  --surface-2: 238 233 222;
+  --fg: 26 22 18;
+  --muted: 145 135 120;
+  --gold: 150 116 38;
+  --gold-soft: 178 142 70;
+  --glow: 0.07;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-bg text-fg font-sans antialiased;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-image:
+      linear-gradient(rgba(8, 8, 10, 0.55), rgba(8, 8, 10, 0.65)),
+      radial-gradient(1100px 700px at 8% -12%, rgb(var(--gold) / var(--glow)), transparent 55%),
+      radial-gradient(900px 600px at 100% 0%, rgb(var(--gold) / calc(var(--glow) * 0.6)), transparent 50%),
+      url('/stadium-bg.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    transition: background-color 0.4s ease, color 0.4s ease;
+  }
+
+  h1, h2, h3 { @apply font-serif; }
+
+  ::selection { background: rgb(var(--gold) / 0.3); }
+
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--fg) / 0.18);
+    border-radius: 999px;
+  }
+}
+
+@layer components {
+  .container-lux {
+    @apply mx-auto w-full max-w-6xl px-5 sm:px-8;
+  }
+
+  /* Eyebrow: small, gold, wide tracking — the signature premium label */
+  .eyebrow {
+    @apply inline-flex items-center gap-2 text-[0.66rem] font-semibold uppercase tracking-luxe text-gold;
+  }
+
+  .display {
+    @apply font-serif font-semibold leading-[1.05] tracking-[-0.01em];
+  }
+
+  .gold-text {
+    background: linear-gradient(100deg, rgb(var(--gold-soft)), rgb(var(--gold)) 60%, rgb(var(--gold-soft)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Hairline rule — used instead of boxes to separate content */
+  .rule {
+    height: 1px;
+    width: 100%;
+    background: rgb(var(--fg) / 0.1);
+  }
+
+  /* Minimal surface: barely-there, no hard border. Used sparingly. */
+  .surface-soft {
+    border-radius: 1rem;
+    background: rgb(var(--fg) / 0.025);
+    box-shadow: inset 0 0 0 1px rgb(var(--fg) / 0.06);
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold tracking-wide transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-gold {
+    @apply btn text-bg;
+    background-image: linear-gradient(135deg, rgb(var(--gold-soft)), rgb(var(--gold)) 55%, rgb(var(--gold-soft)));
+  }
+  .btn-gold:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.05); }
+  .btn-line {
+    @apply btn;
+    border: 1px solid rgb(var(--fg) / 0.15);
+    color: rgb(var(--fg) / 0.85);
+  }
+  .btn-line:hover { border-color: rgb(var(--gold) / 0.7); color: rgb(var(--gold)); }
+
+  .field-label {
+    @apply mb-1.5 block text-[0.68rem] font-medium uppercase tracking-[0.16em] text-muted;
+  }
+  .field {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(var(--fg) / 0.12);
+    background: rgb(var(--fg) / 0.02);
+    padding: 0.75rem 1rem;
+    color: rgb(var(--fg));
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .field::placeholder { color: rgb(var(--muted) / 0.7); }
+  .field:focus { border-color: rgb(var(--gold) / 0.6); box-shadow: 0 0 0 2px rgb(var(--gold) / 0.15); }
+  select.field {
+    appearance: none;
+    padding-right: 2.5rem;
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 14px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23998542' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium;
+  }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}
