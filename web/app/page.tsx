@@ -142,11 +142,15 @@ export default function LandingPage() {
           {tab === "register" && (
             <div className="animate-fade-in">
               <label className="field-label">Favorite team</label>
-              <select className="field" value={favoriteTeam} onChange={(e) => setFavoriteTeam(e.target.value)}>
+              <select
+                className="field"
+                value={favoriteTeam}
+                onChange={(e) => setFavoriteTeam(e.target.value)}
+              >
                 <option value="">Select your nation</option>
-                {teams.map((t) => (
-                  <option key={t.code} value={t.name}>
-                    {t.flag} {t.name} · {t.code}
+                {teams.map((team) => (
+                  <option key={team.code} value={team.name}>
+                    {team.flag} {team.name} · {team.code}
                   </option>
                 ))}
               </select>
