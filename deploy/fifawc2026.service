@@ -6,6 +6,10 @@ After=network.target
 User=www-data
 Group=www-data
 WorkingDirectory=/var/www/FIFAWC2026
+# Load runtime environment variables from an .env file (key=value lines).
+# Create /var/www/FIFAWC2026/.env and add your secrets there, e.g.
+# FOOTBALL_DATA_API_KEY=your_api_key_here
+EnvironmentFile=/var/www/FIFAWC2026/.env
 Environment="SECRET_KEY=replace-me"
 ExecStart=/var/www/FIFAWC2026/.venv/bin/gunicorn -c /var/www/FIFAWC2026/gunicorn.conf.py run:app
 Restart=always
