@@ -9,6 +9,7 @@ sees a single origin and the session cookie just works.
 from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, current_app, g, jsonify, request, session
+from sqlalchemy.exc import IntegrityError
 
 from .db import db
 from .models import Match, Prediction, User
@@ -205,7 +206,16 @@ def auth_register():
 
     user = User(username=username, favorite_team=favorite_team)
     db.session.add(user)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"ok": False, "message": "That username already exists. Please log in instead."}), 409
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Failed to register user")
+        return jsonify({"ok": False, "message": "Registration failed. Please try again."}), 500
+
     session["user_id"] = user.id
     return jsonify({"ok": True, "user": serialize_user(user)})
 
