@@ -19,7 +19,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     APP_TITLE = "FIFAWC2026"
     MATCH_POINTS = 3
-    POTM_POINTS = 1
+    POTM_POINTS = 2
     FOOTBALL_DATA_API_KEY = os.environ.get("FOOTBALL_DATA_API_KEY", "")
     FOOTBALL_DATA_BASE_URL = os.environ.get("FOOTBALL_DATA_BASE_URL", "https://api.football-data.org/v4")
     FOOTBALL_DATA_COMPETITION_CODE = os.environ.get("FOOTBALL_DATA_COMPETITION_CODE", "WC")

@@ -33,6 +33,8 @@ export default function Navbar() {
           <>
             <nav className="hidden items-center gap-7 md:flex">
               {links.map(({ href, label }) => {
+                // Minimal client-side guard: only show the Admin link to matchadmin
+                if (href === "/admin" && (!user || user.username !== "matchadmin")) return null;
                 const active = pathname === href;
                 return (
                   <Link
@@ -77,20 +79,23 @@ export default function Navbar() {
       </div>
 
       {user && open && (
-        <div className="border-t border-fg/10 bg-transparent md:hidden">
+            <div className="border-t border-fg/10 bg-transparent md:hidden">
           <nav className="container-lux flex flex-col py-2">
-            {links.map(({ href, label }) => (
-              <Link
-                key={href}
-                href={href}
-                onClick={() => setOpen(false)}
-                className={`border-b border-fg/5 py-3 text-sm ${
-                  pathname === href ? "text-gold" : "text-muted"
-                }`}
-              >
-                {label}
-              </Link>
-            ))}
+            {links.map(({ href, label }) => {
+              if (href === "/admin" && (!user || user.username !== "matchadmin")) return null;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setOpen(false)}
+                  className={`border-b border-fg/5 py-3 text-sm ${
+                    pathname === href ? "text-gold" : "text-muted"
+                  }`}
+                >
+                  {label}
+                </Link>
+              );
+            })}
             <button onClick={onLogout} className="py-3 text-left text-sm text-muted">
               Logout ({user.username})
             </button>

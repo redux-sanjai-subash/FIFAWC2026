@@ -171,6 +171,13 @@ def require_login():
     return None
 
 
+def require_admin():
+    # Minimal admin guard: only the user with username 'matchadmin' is allowed.
+    if not g.current_user or (g.current_user and g.current_user.username != "matchadmin"):
+        return jsonify({"ok": False, "message": "Admin access required."}), 403
+    return None
+
+
 @api_bp.before_app_request
 def load_session_user():
     g.current_user = get_current_user()
@@ -417,6 +424,10 @@ def leaderboard():
 # --------------------------------------------------------------------------- #
 @api_bp.get("/admin/matches")
 def admin_matches():
+    guard = require_admin()
+    if guard:
+        return guard
+
     matches = Match.query.order_by(Match.kickoff_time.asc()).all()
     return jsonify(
         {
@@ -429,6 +440,10 @@ def admin_matches():
 
 @api_bp.post("/admin/matches")
 def admin_add_match():
+    guard = require_admin()
+    if guard:
+        return guard
+
     data = request.get_json(silent=True) or {}
     team_a = (data.get("team_a") or "").strip()
     team_b = (data.get("team_b") or "").strip()
@@ -455,6 +470,10 @@ def admin_add_match():
 
 @api_bp.patch("/admin/matches/<int:match_id>")
 def admin_update_match(match_id):
+    guard = require_admin()
+    if guard:
+        return guard
+
     match = Match.query.get_or_404(match_id)
     data = request.get_json(silent=True) or {}
     winner = (data.get("winner") or "").strip() or None
@@ -474,12 +493,20 @@ def admin_update_match(match_id):
 
 @api_bp.post("/admin/seed")
 def admin_seed():
+    guard = require_admin()
+    if guard:
+        return guard
+
     seed_matches_if_empty()
     return jsonify({"ok": True, "message": "Starter World Cup fixtures are ready."})
 
 
 @api_bp.post("/admin/sync")
 def admin_sync():
+    guard = require_admin()
+    if guard:
+        return guard
+
     try:
         synced = sync_world_cup_matches(
             current_app.config["FOOTBALL_DATA_BASE_URL"],
