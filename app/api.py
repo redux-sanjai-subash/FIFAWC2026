@@ -9,7 +9,7 @@ sees a single origin and the session cookie just works.
 from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, current_app, g, jsonify, request, session
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from .db import db
 from .models import Match, Prediction, User
@@ -19,6 +19,7 @@ from .utils.football_data import (
     fetch_world_cup_squad_players,
     sync_world_cup_matches,
 )
+from .utils.potm_data import PotmSourceError, fetch_potm_for_matches
 from .utils.scoring import build_leaderboard
 from .utils.world_cup_data import (
     MVP_PLAYER_OPTIONS,
@@ -53,6 +54,79 @@ def _utc_iso(naive_utc):
 def _ist_string(naive_utc):
     aware = naive_utc.replace(tzinfo=timezone.utc).astimezone(IST)
     return aware.strftime("%d %b %Y · %I:%M %p IST")
+
+
+_last_football_data_sync = None
+_FOOTBALL_DATA_SYNC_THROTTLE_SECONDS = 300
+_last_potm_sync = None
+_POTM_SYNC_THROTTLE_SECONDS = 300
+
+
+def _auto_sync_football_data():
+    global _last_football_data_sync
+    if not current_app.config["FOOTBALL_DATA_API_KEY"]:
+        return
+
+    now = datetime.utcnow()
+    if _last_football_data_sync and (now - _last_football_data_sync).total_seconds() < _FOOTBALL_DATA_SYNC_THROTTLE_SECONDS:
+        return
+
+    try:
+        sync_world_cup_matches(
+            current_app.config["FOOTBALL_DATA_BASE_URL"],
+            current_app.config["FOOTBALL_DATA_API_KEY"],
+            current_app.config["FOOTBALL_DATA_COMPETITION_CODE"],
+        )
+    except FootballDataSyncError:
+        pass
+    finally:
+        _last_football_data_sync = now
+
+    _auto_sync_potm_data()
+
+
+def _auto_sync_potm_data():
+    global _last_potm_sync
+    provider = (current_app.config.get("POTM_PROVIDER") or "manual").strip().lower()
+    if provider == "manual":
+        return
+
+    if not current_app.config.get("POTM_HTTP_ENDPOINT"):
+        return
+
+    now = datetime.utcnow()
+    throttle_seconds = current_app.config.get("POTM_SYNC_THROTTLE_SECONDS", 300)
+    if _last_potm_sync and (now - _last_potm_sync).total_seconds() < throttle_seconds:
+        return
+
+    match_ids = [
+        match.api_match_id
+        for match in Match.query.filter(Match.api_match_id != None, Match.winner != None, Match.potm_winner == None).all()
+        if match.api_match_id
+    ]
+
+    if not match_ids:
+        _last_potm_sync = now
+        return
+
+    try:
+        potm_mapping = fetch_potm_for_matches(
+            provider,
+            current_app.config.get("POTM_HTTP_ENDPOINT"),
+            current_app.config.get("POTM_HTTP_API_KEY"),
+            current_app.config.get("FOOTBALL_DATA_COMPETITION_CODE"),
+            match_ids,
+        )
+        if potm_mapping:
+            for match in Match.query.filter(Match.api_match_id.in_(potm_mapping.keys()), Match.potm_winner == None).all():
+                potm_name = potm_mapping.get(match.api_match_id)
+                if potm_name:
+                    match.potm_winner = potm_name
+            db.session.commit()
+    except PotmSourceError:
+        pass
+    finally:
+        _last_potm_sync = now
 
 
 # --------------------------------------------------------------------------- #
@@ -211,6 +285,10 @@ def auth_register():
     except IntegrityError:
         db.session.rollback()
         return jsonify({"ok": False, "message": "That username already exists. Please log in instead."}), 409
+    except OperationalError:
+        db.session.rollback()
+        current_app.logger.exception("Database operational error during registration")
+        return jsonify({"ok": False, "message": "Registration failed. Please try again."}), 500
     except Exception:
         db.session.rollback()
         current_app.logger.exception("Failed to register user")
@@ -270,6 +348,7 @@ def dashboard():
     if guard:
         return guard
 
+    _auto_sync_football_data()
     now = _utc_now()
     matches = Match.query.order_by(Match.kickoff_time.asc()).all()
     grouped = _player_options_by_team()
@@ -410,6 +489,7 @@ def scorers():
 # --------------------------------------------------------------------------- #
 @api_bp.get("/leaderboard")
 def leaderboard():
+    _auto_sync_football_data()
     users = User.query.order_by(User.username.asc()).all()
     rows = build_leaderboard(users, current_app.config["MATCH_POINTS"], current_app.config["POTM_POINTS"])
 
@@ -439,9 +519,13 @@ def admin_matches():
         return guard
 
     matches = Match.query.order_by(Match.kickoff_time.asc()).all()
+    grouped = _player_options_by_team()
     return jsonify(
         {
-            "matches": [serialize_match(match) for match in matches],
+            "matches": [
+                serialize_match(match, potm_options=_potm_options_for(match, grouped))
+                for match in matches
+            ],
             "api_enabled": bool(current_app.config["FOOTBALL_DATA_API_KEY"]),
             "teams": [serialize_team(team) for team in team_choices()],
         }
@@ -523,6 +607,7 @@ def admin_sync():
             current_app.config["FOOTBALL_DATA_API_KEY"],
             current_app.config["FOOTBALL_DATA_COMPETITION_CODE"],
         )
+        _auto_sync_potm_data()
         return jsonify({"ok": True, "message": f"Synced {synced} matches from football-data.org."})
     except FootballDataSyncError as error:
         return jsonify({"ok": False, "message": str(error)}), 502

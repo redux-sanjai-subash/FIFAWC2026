@@ -19,13 +19,25 @@ def _safe_team_name(match_payload, side):
 
 
 def _winner_name(match_payload, team_a, team_b):
-    winner_code = ((match_payload.get("score") or {}).get("winner") or "").upper()
+    score = match_payload.get("score") or {}
+    winner_code = (score.get("winner") or "").upper()
     if winner_code == "HOME_TEAM":
         return team_a
     if winner_code == "AWAY_TEAM":
         return team_b
     if winner_code == "DRAW":
         return "Draw"
+
+    full_time = score.get("fullTime") or {}
+    home_goals = full_time.get("home")
+    away_goals = full_time.get("away")
+    if home_goals is not None and away_goals is not None:
+        if home_goals > away_goals:
+            return team_a
+        if away_goals > home_goals:
+            return team_b
+        return "Draw"
+
     return None
 
 
@@ -57,10 +69,25 @@ def sync_world_cup_matches(base_url, api_key, competition_code="WC", season=2026
             continue
 
         kickoff_time = datetime.fromisoformat(kickoff_raw.replace("Z", "+00:00")).replace(tzinfo=None)
+        # Prefer an existing match with the official api_match_id
         match = Match.query.filter_by(api_match_id=api_match_id).first()
+
+        # If no direct api_match_id match, try to find a local/manual match
+        # with the same teams and kickoff time so we can link it instead
+        # of creating a duplicate. Check both home/away orders.
+        if not match:
+            match = (
+                Match.query.filter_by(team_a=home_name, team_b=away_name, kickoff_time=kickoff_time).first()
+                or Match.query.filter_by(team_a=away_name, team_b=home_name, kickoff_time=kickoff_time).first()
+            )
+
+        # If still no match, create a fresh record and add it.
         if not match:
             match = Match(api_match_id=api_match_id)
             db.session.add(match)
+        else:
+            # Ensure api_match_id is set on the existing local match
+            match.api_match_id = api_match_id
 
         match.team_a = home_name
         match.team_b = away_name

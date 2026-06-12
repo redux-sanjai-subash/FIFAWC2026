@@ -16,6 +16,7 @@ What to keep out of GitHub
 Env vars required by app (place these in systemd service Environment or in a `.env` on the server):
 - `SECRET_KEY` — Flask secret
 - `DATABASE_URL` — optional, defaults to `sqlite:///instance/fifawc.db`
+  - if you use a production DB (Postgres/MySQL), install the matching DB driver in the server environment
 - `FOOTBALL_DATA_API_KEY` — (optional) enables official fixture sync
 - `FOOTBALL_DATA_BASE_URL` — optional
 - Any other production secrets you need (e.g., email credentials)

@@ -23,3 +23,8 @@ class Config:
     FOOTBALL_DATA_API_KEY = os.environ.get("FOOTBALL_DATA_API_KEY", "")
     FOOTBALL_DATA_BASE_URL = os.environ.get("FOOTBALL_DATA_BASE_URL", "https://api.football-data.org/v4")
     FOOTBALL_DATA_COMPETITION_CODE = os.environ.get("FOOTBALL_DATA_COMPETITION_CODE", "WC")
+
+    POTM_PROVIDER = os.environ.get("POTM_PROVIDER", "manual")
+    POTM_HTTP_ENDPOINT = os.environ.get("POTM_HTTP_ENDPOINT", "")
+    POTM_HTTP_API_KEY = os.environ.get("POTM_HTTP_API_KEY", "")
+    POTM_SYNC_THROTTLE_SECONDS = int(os.environ.get("POTM_SYNC_THROTTLE_SECONDS", "300"))

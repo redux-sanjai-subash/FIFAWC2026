@@ -230,7 +230,14 @@ function AdminMatchRow({
         </div>
         <div>
           <label className="field-label">Player of the Match</label>
-          <input className="field" value={potmWinner} onChange={(e) => setPotmWinner(e.target.value)} placeholder="Official POTM" />
+          <select className="field" value={potmWinner} onChange={(e) => setPotmWinner(e.target.value)}>
+            <option value="">No POTM yet</option>
+            {match.potm_options.map((player) => (
+              <option key={player} value={player}>
+                {player}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="field-label">Locked</label>
