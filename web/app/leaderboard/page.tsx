@@ -15,6 +15,10 @@ function LeaderboardInner() {
 
   if (!data) return <Loader label="Tallying points" />;
 
+  const rows = data.rows
+    .filter((row) => row.username !== "matchadmin")
+    .map((row, index) => ({ ...row, rank: index + 1 }));
+  const podium = rows.slice(0, 3);
   const isMe = (row: LeaderboardRow) => data.current_username === row.username;
 
   return (
@@ -31,9 +35,9 @@ function LeaderboardInner() {
       </header>
 
       {/* Podium — bare figures, no boxes */}
-      {data.podium.length > 0 && (
+      {podium.length > 0 && (
         <section className="grid gap-10 border-y border-fg/10 py-10 sm:grid-cols-3">
-          {data.podium.map((row, i) => (
+          {podium.map((row, i) => (
             <div key={row.username} className={i === 0 ? "" : "sm:pl-10 sm:border-l sm:border-fg/10"}>
               <div className="flex items-baseline gap-3">
                 <span className="display text-5xl text-muted/40">{i + 1}</span>
@@ -65,10 +69,10 @@ function LeaderboardInner() {
           <span className="text-right">POTM</span>
         </div>
         <div className="divide-y divide-fg/10">
-          {data.rows.length === 0 && (
+          {rows.length === 0 && (
             <p className="py-10 text-center text-muted">No scored results yet.</p>
           )}
-          {data.rows.map((row) => (
+          {rows.map((row) => (
             <div
               key={row.username}
               className={`grid grid-cols-2 items-center gap-x-4 gap-y-2 py-4 md:grid-cols-[3rem_1fr_1fr_5rem_5rem_4rem] ${
