@@ -225,10 +225,18 @@ def _player_options_by_team():
 
 
 def _potm_options_for(match, grouped):
+    aliases = {
+        "Cape Verde Islands": "Cabo Verde",
+    }
+
+    team_a = aliases.get(match.team_a, match.team_a)
+    team_b = aliases.get(match.team_b, match.team_b)
+
     seen = []
-    for name in grouped.get(match.team_a, []) + grouped.get(match.team_b, []):
+    for name in grouped.get(team_a, []) + grouped.get(team_b, []):
         if name not in seen:
             seen.append(name)
+
     return seen
 
 
