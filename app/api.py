@@ -9,6 +9,8 @@ sees a single origin and the session cookie just works.
 from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, current_app, g, jsonify, request, session
+import os
+import json
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from .db import db
@@ -161,6 +163,15 @@ def serialize_team(team):
     }
 
 
+def _lock_override_for(match_id):
+    raw = _load_lock_overrides().get(str(match_id))
+    if isinstance(raw, dict):
+        return raw
+    if raw is None:
+        return {}
+    return {"lock_extension_minutes": raw}
+
+
 def serialize_match(match, prediction=None, potm_options=None, now=None):
     now = now or _utc_now()
     team_a = TEAM_LOOKUP.get(match.team_a)
@@ -168,8 +179,15 @@ def serialize_match(match, prediction=None, potm_options=None, now=None):
 
     kickoff = match.kickoff_time
     already_picked = prediction is not None
+    # Consider per-match lock extension (minutes) and reopen flags from overrides
+    override = _lock_override_for(match.id)
+    extension_minutes = int(override.get("lock_extension_minutes") or 0)
+    reopen_picks = bool(override.get("reopen_picks"))
+
     visible = now >= kickoff - VISIBLE_BEFORE
-    selection_closed = now >= kickoff + LOCK_AFTER
+    selection_closed = now >= kickoff + LOCK_AFTER + timedelta(minutes=extension_minutes)
+    if reopen_picks:
+        selection_closed = False
     # A pick is possible only while visible, before the post-kickoff cutoff, not
     # admin-locked, and not already made (picks are final).
     can_pick = visible and not selection_closed and not match.is_locked and not already_picked
@@ -186,7 +204,7 @@ def serialize_match(match, prediction=None, potm_options=None, now=None):
         "venue": match.venue or "Official venue",
         "kickoff_time": _utc_iso(kickoff),
         "kickoff_ist": _ist_string(kickoff),
-        "lock_time": _utc_iso(kickoff + LOCK_AFTER),
+        "lock_time": _utc_iso(kickoff + LOCK_AFTER + timedelta(minutes=extension_minutes)),
         "winner": match.winner,
         "potm_winner": match.potm_winner,
         "is_locked": match.is_locked,
@@ -197,11 +215,14 @@ def serialize_match(match, prediction=None, potm_options=None, now=None):
         "prediction": prediction.prediction if prediction else None,
         "potm_prediction": prediction.potm_prediction if prediction else None,
         "potm_options": potm_options or [],
+        "lock_extension_minutes": extension_minutes,
+        "reopen_picks": reopen_picks,
     }
 
 
 def _player_options_by_team():
     players = list(MVP_PLAYER_OPTIONS)
+    api_debug_teams = set()
 
     if current_app.config["FOOTBALL_DATA_API_KEY"]:
         try:
@@ -216,17 +237,59 @@ def _player_options_by_team():
     grouped = {}
     for player in players:
         grouped.setdefault(player["team"], [])
+        if player["team"] not in api_debug_teams:
+            api_debug_teams.add(player["team"])
         if player["name"] not in grouped[player["team"]]:
             grouped[player["team"]].append(player["name"])
 
     for team_name in grouped:
         grouped[team_name].sort()
+    
+    # Debug: Log all unique team names to help identify format issues
+    current_app.logger.info(f"Player teams available: {sorted(grouped.keys())}")
+    
     return grouped
+
+
+# File-backed per-match lock extension overrides (minutes). Stored in instance/lock_overrides.json
+def _overrides_path():
+    try:
+        path = current_app.instance_path
+    except Exception:
+        path = os.path.join(os.path.dirname(__file__), "..", "instance")
+    return os.path.join(path, "lock_overrides.json")
+
+
+def _load_lock_overrides():
+    path = _overrides_path()
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except FileNotFoundError:
+        return {}
+    except Exception:
+        current_app.logger.exception("Failed to read lock overrides")
+        return {}
+
+
+def _save_lock_overrides(mapping):
+    path = _overrides_path()
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(mapping, fh)
+    except Exception:
+        current_app.logger.exception("Failed to write lock overrides")
 
 
 def _potm_options_for(match, grouped):
     aliases = {
         "Cape Verde Islands": "Cabo Verde",
+        "Bosnia-Herzegovina": "Bosnia and Herzegovina",
+        "Bosnia & Herzegovina": "Bosnia and Herzegovina",
+        "Bosnia": "Bosnia and Herzegovina",
+        "BIH": "Bosnia and Herzegovina",
+        "Bosnia-H.": "Bosnia and Herzegovina",
     }
 
     team_a = aliases.get(match.team_a, match.team_a)
@@ -430,8 +493,13 @@ def save_prediction(match_id):
     if match.is_locked:
         return jsonify({"ok": False, "message": "That match is locked."}), 423
 
-    if now >= match.kickoff_time + LOCK_AFTER:
-        return jsonify({"ok": False, "message": "Picks closed 15 minutes after kickoff."}), 423
+    # Respect any per-match extension and reopen flag for the lock deadline
+    override = _lock_override_for(match.id)
+    extension_minutes = int(override.get("lock_extension_minutes") or 0)
+    reopen_picks = bool(override.get("reopen_picks"))
+    lock_deadline = match.kickoff_time + LOCK_AFTER + timedelta(minutes=extension_minutes)
+    if now >= lock_deadline and not reopen_picks:
+        return jsonify({"ok": False, "message": "Picks closed (post-deadline)."}), 423
 
     if choice not in allowed_choices:
         return jsonify({"ok": False, "message": "Pick Team A, Team B, or Draw."}), 400
@@ -589,6 +657,37 @@ def admin_update_match(match_id):
     match.winner = winner
     match.potm_winner = potm_winner
     match.is_locked = is_locked
+
+    lock_extension = data.get("lock_extension_minutes")
+    reopen_picks = data.get("reopen_picks")
+    if lock_extension is not None or reopen_picks is not None:
+        overrides = _load_lock_overrides()
+        entry = overrides.get(str(match.id))
+        if isinstance(entry, dict):
+            settings = dict(entry)
+        elif entry is None:
+            settings = {}
+        else:
+            settings = {"lock_extension_minutes": entry}
+
+        if lock_extension is not None:
+            try:
+                minutes = int(lock_extension)
+            except (TypeError, ValueError):
+                return jsonify({"ok": False, "message": "lock_extension_minutes must be an integer."}), 400
+            if minutes and minutes > 0:
+                settings["lock_extension_minutes"] = minutes
+            else:
+                settings.pop("lock_extension_minutes", None)
+
+        if reopen_picks is not None:
+            settings["reopen_picks"] = bool(reopen_picks)
+
+        if settings:
+            overrides[str(match.id)] = settings
+        else:
+            overrides.pop(str(match.id), None)
+        _save_lock_overrides(overrides)
     db.session.commit()
     return jsonify({"ok": True, "message": "Match updated.", "match": serialize_match(match)})
 

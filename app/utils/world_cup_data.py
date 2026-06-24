@@ -66,6 +66,11 @@ TEAM_NAME_ALIASES = {
     "Ivory Coast": "Cote d'Ivoire",
     "Cape Verde": "Cabo Verde",
     "DR Congo": "Congo DR",
+    "Bosnia-Herzegovina": "Bosnia and Herzegovina",
+    "Bosnia & Herzegovina": "Bosnia and Herzegovina",
+    "Bosnia": "Bosnia and Herzegovina",
+    "BIH": "Bosnia and Herzegovina",
+    "Bosnia-H.": "Bosnia and Herzegovina",
 }
 
 MVP_PLAYER_OPTIONS = [

@@ -36,6 +36,8 @@ export interface Match {
   prediction: string | null;
   potm_prediction: string | null;
   potm_options: string[];
+  lock_extension_minutes?: number;
+  reopen_picks?: boolean;
 }
 
 export interface DashboardData {

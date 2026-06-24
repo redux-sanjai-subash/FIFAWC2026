@@ -78,7 +78,13 @@ export const api = {
   }) => post("/admin/matches", body) as Promise<{ ok: boolean; message: string; match: Match }>,
   adminUpdateMatch: (
     matchId: number,
-    body: { winner: string | null; potm_winner: string | null; is_locked: boolean }
+    body: {
+      winner: string | null;
+      potm_winner: string | null;
+      is_locked: boolean;
+      lock_extension_minutes?: number;
+      reopen_picks?: boolean;
+    }
   ) =>
     request(`/admin/matches/${matchId}`, {
       method: "PATCH",

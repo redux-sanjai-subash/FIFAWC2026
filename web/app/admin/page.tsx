@@ -180,6 +180,8 @@ function AdminMatchRow({
   const [winner, setWinner] = useState(match.winner ?? "");
   const [potmWinner, setPotmWinner] = useState(match.potm_winner ?? "");
   const [locked, setLocked] = useState(match.is_locked);
+  const [lockExtension, setLockExtension] = useState<number | null>(match.lock_extension_minutes ?? null);
+  const [reopenPicks, setReopenPicks] = useState<boolean>(match.reopen_picks ?? false);
   const key = `match-${match.id}`;
 
   const save = async () => {
@@ -189,6 +191,8 @@ function AdminMatchRow({
         winner: winner || null,
         potm_winner: potmWinner || null,
         is_locked: locked,
+        lock_extension_minutes: lockExtension ?? 0,
+        reopen_picks: reopenPicks,
       });
       toast(res.message, "success");
       await onSaved();
@@ -240,7 +244,22 @@ function AdminMatchRow({
           </select>
         </div>
         <div>
-          <label className="field-label">Locked</label>
+          <label className="field-label">Lock extension (minutes)</label>
+          <input
+            type="number"
+            className="field"
+            min={0}
+            value={lockExtension ?? 0}
+            onChange={(e) => setLockExtension(Number(e.target.value))}
+          />
+        </div>
+        <div>          <label className="field-label">Reopen picks</label>
+          <select className="field" value={reopenPicks ? "1" : "0"} onChange={(e) => setReopenPicks(e.target.value === "1") }>
+            <option value="0">No</option>
+            <option value="1">Yes</option>
+          </select>
+        </div>
+        <div>          <label className="field-label">Locked</label>
           <select className="field" value={locked ? "1" : "0"} onChange={(e) => setLocked(e.target.value === "1")}>
             <option value="0">No</option>
             <option value="1">Yes</option>
