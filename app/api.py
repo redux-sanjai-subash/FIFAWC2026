@@ -188,9 +188,9 @@ def serialize_match(match, prediction=None, potm_options=None, now=None):
     selection_closed = now >= kickoff + LOCK_AFTER + timedelta(minutes=extension_minutes)
     if reopen_picks:
         selection_closed = False
-    # A pick is possible only while visible, before the post-kickoff cutoff, not
-    # admin-locked, and not already made (picks are final).
-    can_pick = visible and not selection_closed and not match.is_locked and not already_picked
+    # A pick is possible while visible, before the post-kickoff cutoff, not
+    # admin-locked, and either not yet made or reopened for editing.
+    can_pick = visible and not selection_closed and not match.is_locked and (not already_picked or reopen_picks)
 
     return {
         "id": match.id,
@@ -483,10 +483,6 @@ def save_prediction(match_id):
 
     existing = Prediction.query.filter_by(user_id=g.current_user.id, match_id=match.id).first()
 
-    # Picks are final — they can never be edited once made.
-    if existing:
-        return jsonify({"ok": False, "message": "Your pick is locked in and cannot be changed."}), 409
-
     if now < match.kickoff_time - VISIBLE_BEFORE:
         return jsonify({"ok": False, "message": "This fixture is not open for picks yet."}), 423
 
@@ -501,20 +497,31 @@ def save_prediction(match_id):
     if now >= lock_deadline and not reopen_picks:
         return jsonify({"ok": False, "message": "Picks closed (post-deadline)."}), 423
 
+    if existing and not reopen_picks:
+        return jsonify({"ok": False, "message": "Your pick is locked in and cannot be changed."}), 409
+
     if choice not in allowed_choices:
         return jsonify({"ok": False, "message": "Pick Team A, Team B, or Draw."}), 400
 
     if not potm_prediction:
         return jsonify({"ok": False, "message": "Choose a Player of the Match."}), 400
 
-    prediction = Prediction(
-        user_id=g.current_user.id,
-        match_id=match.id,
-        prediction=choice,
-        potm_prediction=potm_prediction,
-    )
-    db.session.add(prediction)
-    db.session.commit()
+    if existing:
+        existing.prediction = choice
+        existing.potm_prediction = potm_prediction
+        db.session.commit()
+        message = "Pick updated"
+        prediction = existing
+    else:
+        prediction = Prediction(
+            user_id=g.current_user.id,
+            match_id=match.id,
+            prediction=choice,
+            potm_prediction=potm_prediction,
+        )
+        db.session.add(prediction)
+        db.session.commit()
+        message = "Pick locked in"
 
     return jsonify(
         {
@@ -523,7 +530,7 @@ def save_prediction(match_id):
             "prediction": prediction.prediction,
             "potm_prediction": prediction.potm_prediction,
             "saved_count": Prediction.query.filter_by(user_id=g.current_user.id).count(),
-            "message": "Pick locked in",
+            "message": message,
         }
     )
 

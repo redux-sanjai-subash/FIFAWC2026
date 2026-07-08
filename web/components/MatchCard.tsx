@@ -15,12 +15,14 @@ export default function MatchCard({
   onSaved?: (savedCount: number) => void;
 }) {
   const { toast } = useToast();
-  const [winner, setWinner] = useState<string | null>(null);
-  const [potm, setPotm] = useState("");
+  const [winner, setWinner] = useState<string | null>(match.already_picked ? match.prediction : null);
+  const [potm, setPotm] = useState(match.already_picked ? match.potm_prediction || "" : "");
   const [picked, setPicked] = useState(match.already_picked);
   const [savedWinner, setSavedWinner] = useState<string | null>(match.prediction);
   const [savedPotm, setSavedPotm] = useState<string | null>(match.potm_prediction);
   const [busy, setBusy] = useState(false);
+  const isReopen = match.can_pick && match.already_picked;
+  const showEditableForm = match.can_pick && (!picked || isReopen);
 
   const choices = [
     { value: match.team_a, label: match.team_a, flag: match.team_a_flag },
@@ -37,7 +39,7 @@ export default function MatchCard({
       setSavedWinner(res.prediction);
       setSavedPotm(res.potm_prediction);
       setPicked(true);
-      toast("Pick locked in — it's final.", "success");
+      toast(res.message || "Pick saved.", "success");
       onSaved?.(res.saved_count);
     } catch (err) {
       toast(err instanceof ApiError ? err.message : "Could not save this pick.", "error");
@@ -60,13 +62,18 @@ export default function MatchCard({
               <Check width={12} height={12} /> {match.winner}
             </span>
           )}
+          {match.can_pick && isReopen && (
+            <span className="flex items-center gap-1.5 text-gold">
+              <Clock width={13} height={13} /> Reopened for edit
+            </span>
+          )}
           {match.can_pick && !picked && (
             <span className="flex items-center gap-1.5 text-muted">
               <Clock width={13} height={13} />
               <Countdown target={match.lock_time} prefix="closes in" expired="closing" />
             </span>
           )}
-          {picked && (
+          {picked && !isReopen && (
             <span className="flex items-center gap-1.5 text-gold">
               <Lock width={13} height={13} /> Locked
             </span>
@@ -101,7 +108,7 @@ export default function MatchCard({
       </div>
 
       {/* Pick area */}
-      {match.can_pick && !picked ? (
+      {showEditableForm ? (
         <div className="mt-6 space-y-4">
           <div className="flex flex-wrap gap-2">
             {choices.map((c) => {
@@ -140,11 +147,11 @@ export default function MatchCard({
               </datalist>
             </div>
             <button onClick={save} disabled={busy} className="btn-gold whitespace-nowrap">
-              {busy ? "Locking…" : "Lock in pick"}
+              {busy ? "Saving…" : isReopen ? "Update pick" : "Lock in pick"}
             </button>
           </div>
           <p className="flex items-center gap-1.5 text-xs text-muted">
-            <ShieldCheck width={13} height={13} /> Your pick is final and can't be changed once locked.
+            <ShieldCheck width={13} height={13} /> {isReopen ? "This match is reopened, so you can update your pick once more." : "Your pick is final and can't be changed once locked."}
           </p>
         </div>
       ) : picked ? (
